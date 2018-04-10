@@ -1,0 +1,150 @@
+---
+title: "anly 699 thesis"
+author: "Ahien C. Djouka"
+date: "11/20/2017"
+output: html_document
+---
+
+```{r, message=FALSE, warning=FALSE}
+library(ggplot2)
+## download the data
+library(readxl)
+germany <- read_excel("~/Desktop/FALL 2017/ANLY 699/THESIS/germany.xlsx")
+library(readxl)
+taiwan <- read_excel("~/Desktop/FALL 2017/ANLY 699/THESIS/taiwan.xlsx")
+## see the first characters
+str(taiwan)
+str(germany)
+
+##summary of the data
+summary(taiwan$`Credit Balance`)
+summary(taiwan$Age)
+summary(germany$`Credit Balance`)
+summary(germany$Age)
+
+##add normalized variables for the continuous variables
+taiwan$AgeNorm <- (taiwan$Age-mean(taiwan$Age))/sd(taiwan$Age)
+taiwan$CDNorm <- (taiwan$`Credit Balance`-mean(taiwan$`Credit Balance`))/sd(taiwan$`Credit Balance`)
+germany$AgeNorm <- (germany$Age-mean(germany$Age))/sd(germany$Age)
+germany$CDNorm <- (germany$`Credit Balance`-mean(germany$`Credit Balance`))/sd(germany$`Credit Balance`)
+
+##build histograms of the normalized variables
+hist(taiwan$AgeNorm)
+hist(taiwan$CDNorm)
+hist(germany$AgeNorm)
+hist(germany$CDNorm)
+
+##build boxplots of distribution of normalized variables by default status
+ggplot(taiwan, aes(taiwan$Default, taiwan$AgeNorm))+geom_boxplot(aes(group=cut_width(taiwan$Default, 0.25))) + coord_flip() + ggtitle("Distribution of Taiwan AgeNorm by Default Status")
+ggplot(germany, aes(germany$Default, germany$AgeNorm))+geom_boxplot(aes(group=cut_width(germany$Default, 0.25))) + coord_flip() + ggtitle("Distribution of Germany AgeNorm by Default Status")
+ggplot(taiwan, aes(taiwan$Default, taiwan$CDNorm))+geom_boxplot(aes(group=cut_width(taiwan$Default, 0.25))) + coord_flip() + ggtitle("Distribution of Taiwan CDNorm by Default Status")
+ggplot(germany, aes(germany$Default, germany$CDNorm))+geom_boxplot(aes(group=cut_width(germany$Default, 0.25))) + coord_flip() + ggtitle("Distribution of Germany CDNorm by Default Status")
+
+##create log variables of continuous variables
+taiwan$AgeLog <- log(taiwan$Age)
+taiwan$CDLog <- log(taiwan$`Credit Balance`)
+germany$AgeLog <- log(germany$Age)
+germany$CDLog <- log(germany$`Credit Balance`)
+
+##created normalized versions of the log of age and credit balance
+taiwan$CDLogNorm <- (taiwan$CDLog-mean(taiwan$CDLog))/sd(taiwan$CDLog)
+taiwan$AgeLogNorm <- (taiwan$AgeLog-mean(taiwan$AgeLog))/sd(taiwan$AgeLog)
+germany$AgeLogNorm <- (germany$AgeLog-mean(germany$AgeLog))/sd(germany$AgeLog)
+germany$CDLogNorm <- (germany$CDLog-mean(germany$CDLog))/sd(germany$CDLog)
+
+##build histograms showing the distribution of the logNorms
+hist(taiwan$AgeLogNorm, col = "orange")
+hist(taiwan$CDLogNorm, col="grey")
+hist(germany$AgeLogNorm, col="pink")
+hist(germany$CDLogNorm, col="lavender")
+
+##build boxplots showing the distributionof the log norms based on default status
+ggplot(taiwan, aes(taiwan$Default, taiwan$AgeLogNorm))+geom_boxplot(aes(group=cut_width(taiwan$Default, 0.25))) + coord_flip() + ggtitle("Distribution of Taiwan AgeLogNorm by Default Status")
+ggplot(germany, aes(germany$Default, germany$AgeLogNorm))+geom_boxplot(aes(group=cut_width(germany$Default, 0.25))) + coord_flip() + ggtitle("Distribution of Germany AgeLogNorm by Default Status")
+ggplot(taiwan, aes(taiwan$Default, taiwan$CDLogNorm))+geom_boxplot(aes(group=cut_width(taiwan$Default, 0.25))) + coord_flip() + ggtitle("Distribution of Taiwan CDLogNorm by Default Status")
+ggplot(germany, aes(germany$Default, germany$CDLogNorm))+geom_boxplot(aes(group=cut_width(germany$Default, 0.25))) + coord_flip() + ggtitle("Distribution of Germany CDLogNorm by Default Status")
+
+##set categorical variables as character
+taiwan$Default <- as.character(taiwan$Default)
+taiwan$Gender <- as.character(taiwan$Gender)
+taiwan$`Marital Status` <- as.character(taiwan$`Marital Status`)
+germany$Default <- as.character(germany$Default)
+germany$Gender <- as.character(germany$Gender)
+germany$`Marital Status` <- as.character(germany$`Marital Status`)
+
+##create bar graphs for the independent variables with default as class
+ggplot(taiwan, aes(taiwan$Gender))+geom_bar(aes(fill=taiwan$Default))+ggtitle("Taiwan Gender Breakdown by Default")+theme(axis.ticks.x = element_line(0,1))
+ggplot(taiwan, aes(taiwan$`Marital Status`))+geom_bar(aes(fill=taiwan$Default))+ggtitle("Taiwan Marital Status Breakdown By Default")
+ggplot(germany, aes(germany$Gender))+geom_bar(aes(fill=germany$Default))+ggtitle("Germany Gender Breakdown by Default")+theme(axis.ticks.x = element_line(0,1))
+ggplot(germany, aes(germany$`Marital Status`))+geom_bar(aes(fill=germany$Default))+ggtitle("Germany Marital Status Breakdown By Default")
+
+##train and test datasets
+set.seed(100)
+TWsample <- sample.int(n = nrow(taiwan), size = floor(.75*nrow(taiwan)), replace = F)
+TWtrain <- taiwan[TWsample, ]
+TWtest <- taiwan[-TWsample, ]
+GNsample <- sample.int(n = nrow(germany), size = floor(.75*nrow(germany)), replace = F)
+GNtrain <- germany[GNsample, ]
+GNtest <- germany[-GNsample, ]
+
+##defualt breakdown in train tests
+GNdefault <- table(GNtrain$Default)
+GNdefault
+TWdefault <- table(TWtrain$Default)
+TWdefault
+
+##logisic regression
+TWtrain$Default <- as.numeric(TWtrain$Default)
+TWLR <- glm(formula = Default ~ AgeNorm + CDLogNorm, family = binomial, data = TWtrain)
+summary(TWLR)
+
+GNtrain$Default <- as.numeric(GNtrain$Default)
+GNLR <- glm(formula = Default ~ AgeNorm + CDLogNorm, family = binomial, data = GNtrain)
+summary(GNLR)
+
+## confusion matrices
+library(caret)
+library(e1071)
+TWLRpredict <- predict(TWLR, newdata = TWtrain, type = "response")
+TWConf <- confusionMatrix(data = as.numeric(TWLRpredict>0.5), reference = TWtrain$Default)
+
+GNLRpredict <- predict(GNLR, newdata = GNtrain, type = "response")
+GNConf <- confusionMatrix(data = as.numeric(GNLRpredict>0.5), reference = GNtrain$Default)
+
+## apply LR model on test sets
+TWTpredict <- predict(TWLR, newdata = TWtest, type = "response")
+TWTConf <- confusionMatrix(data = as.numeric(TWTpredict>0.5), reference = TWtest$Default)
+TWTConf
+
+GNTpredict <- predict(GNLR, newdata = GNtest, type = "response")
+GNTConf <- confusionMatrix(data = as.numeric(GNTpredict>0.5), reference = GNtest$Default)
+GNTConf
+
+##CART model
+library(rpart)
+library(rpart.plot)
+GNtrain$Gender <- as.factor(GNtrain$Gender)
+GNtrain$`Marital Status` <- as.factor(GNtrain$`Marital Status`)
+GNtrain$Default <- as.factor(GNtrain$Default)
+set.seed(123)
+GNtree <- rpart(GNtrain$Default ~ GNtrain$`Credit Balance` + GNtrain$Age + GNtrain$Gender + GNtrain$`Marital Status`, data = GNtrain, control = rpart.control(cp=0.0001))
+printcp(GNtree)
+GNbestcp <- GNtree$cptable[which.min(GNtree$cptable[, "xerror"]), "CP"]
+GNtree.pruned <- prune(GNtree, cp = GNbestcp)
+GNconf.matrix <- table(GNtrain$Default, predict(GNtree.pruned, type="class"))
+print(GNconf.matrix)
+plot(GNtree.pruned)
+
+TWtrain$Gender <- as.factor(TWtrain$Gender)
+TWtrain$`Marital Status` <- as.factor(TWtrain$`Marital Status`)
+TWtrain$Default <- as.factor(TWtrain$Default)
+set.seed(123)
+TWtree <- rpart(TWtrain$Default ~ TWtrain$`Credit Balance` + TWtrain$Age + TWtrain$Gender + TWtrain$`Marital Status`, data = TWtrain, control = rpart.control(cp=0.0001))
+printcp(TWtree)
+TWbestcp <- TWtree$cptable[which.min(TWtree$cptable[, "xerror"]), "CP"]
+TWtree.pruned <- prune(TWtree, cp = TWbestcp)
+TWconf.matrix <- table(TWtrain$Default, predict(TWtree.pruned, type="class"))
+print(TWconf.matrix)
+plot(TWtree.pruned)
+
+```
